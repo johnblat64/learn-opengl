@@ -6,6 +6,8 @@
 #include <sstream>
 #include "timestep.h"
 
+
+
 SDL_Window *window;
 SDL_GLContext openglContext;
 int window_W = 1920;
@@ -16,7 +18,7 @@ void quit_program(){
     exit(EXIT_SUCCESS);
 }
 
-std::string file_read_to_str(std::string filename){
+char *file_read_to_str(std::string filename){
     FILE *shader_file = fopen(filename.c_str(), "r");
 
     fseek(shader_file, 0, SEEK_END);
@@ -31,17 +33,14 @@ std::string file_read_to_str(std::string filename){
 
     shader_text[shader_file_size] = '\0';
 
-    std::string shader_str(shader_text);
-
-    return shader_str;
+    return shader_text;
     
 }
 
-unsigned int compile_shader(std::string shader_source_str, int shader_type)
+unsigned int compile_shader(const char *shader_source_str, int shader_type)
 {
     unsigned int shader_id = glCreateShader(shader_type);
-    const char *shader_source_char_ptr = shader_source_str.c_str();
-    glShaderSource(shader_id, 1, &shader_source_char_ptr, NULL);
+    glShaderSource(shader_id, 1, &shader_source_str, NULL);
     glCompileShader(shader_id);
 
     int compilation_success;
@@ -84,8 +83,8 @@ int main(){
 
     glViewport(0,0,window_W, window_h);
 
-    std::string vertex_shader_source_str = file_read_to_str("shaders/whatever.vert");
-    std::string fragment_shader_source_str = file_read_to_str("shaders/whatever.frag");
+    const char *vertex_shader_source_str = file_read_to_str("shaders/whatever.vert");
+    const char *fragment_shader_source_str = file_read_to_str("shaders/whatever.frag");
 
     GLuint vertex_shader_id = compile_shader(vertex_shader_source_str, GL_VERTEX_SHADER);
 
@@ -117,12 +116,15 @@ int main(){
         0.5f,  0.5f, 0.0f,  // top right
         0.5f, -0.5f, 0.0f,  // bottom right
         -0.5f, -0.5f, 0.0f,  // bottom left
-        -0.5f,  0.5f, 0.0f   // top left 
+        -0.5f,  0.5f, 0.0f,   // top left 
+        -0.1f, 0.0f, 0.0f, // center left
+        0.1f, 0.0f, 0.0f // center right
+        
     };
 
     unsigned int indices[] = {
-        0, 1, 3, // 1st triangle
-        1, 2, 3  // 2nd triangle
+        0, 1, 5, // 1st triangle
+        3, 2, 4   // 2nd triangle
     };
 
     // 
