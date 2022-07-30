@@ -5,7 +5,7 @@
 #include <streambuf>
 #include <sstream>
 #include "timestep.h"
-
+#include "math.h"
 
 
 SDL_Window *window;
@@ -105,25 +105,20 @@ int main(){
     glViewport(0,0,window_W, window_h);
 
     const char *vertex_shader_source_str = file_rightead_to_str("shaders/whatever.vert");
-    const char *fragment_shader_source_str_orange = file_rightead_to_str("shaders/orange.frag");
-    const char *fragment_shader_source_str_yellow = file_rightead_to_str("shaders/yellow.frag");
+    const char *fragment_shader_source_str = file_rightead_to_str("shaders/uniform-example.frag");
 
 
     GLuint vertex_shader_id = compile_shader(vertex_shader_source_str, GL_VERTEX_SHADER);
 
-    GLuint fragment_shader_id_orange = compile_shader(fragment_shader_source_str_orange, GL_FRAGMENT_SHADER);
-    GLuint fragment_shader_id_yellow = compile_shader(fragment_shader_source_str_yellow, GL_FRAGMENT_SHADER);
+    GLuint fragment_shader_id = compile_shader(fragment_shader_source_str, GL_FRAGMENT_SHADER);
 
 
-    GLuint shader_program_id_orange = glCreateProgram();
-    GLuint shader_program_id_yellow = glCreateProgram();
+    GLuint shader_program_id = glCreateProgram();
   
-    program_link_shaders(shader_program_id_orange, vertex_shader_id, fragment_shader_id_orange);
-    program_link_shaders(shader_program_id_yellow, vertex_shader_id, fragment_shader_id_yellow);
+    program_link_shaders(shader_program_id, vertex_shader_id, fragment_shader_id);
 
     glDeleteShader(vertex_shader_id);
-    glDeleteShader(fragment_shader_id_orange);
-    glDeleteShader(fragment_shader_id_yellow);
+    glDeleteShader(fragment_shader_id);
 
 
 
@@ -134,16 +129,13 @@ int main(){
         0.5f, -0.5f, 0.0f,  // bottom right
         -0.5f, -0.5f, 0.0f,  // bottom left
         -0.5f,  0.5f, 0.0f,   // top left 
+        0.0f,  0.5f, 0.0f, // top center
         -0.1f, 0.0f, 0.0f, // center left
         0.1f, 0.0f, 0.0f // center right
     };
 
-    unsigned int indices_right[] = {
-        0, 1, 5, // 1st triangle
-    };
-
-    unsigned int indices_left[] = {
-        3, 2, 4   // 2nd triangle
+    unsigned int indices[] = {
+        1, 2, 4, // 1st triangle
     };
 
     // 
@@ -151,20 +143,14 @@ int main(){
     //
     // holds indices that index into a VERTEX BUFFER OBJECT
     //
-    glUseProgram(shader_program_id_orange);
+    glUseProgram(shader_program_id);
 
-    GLuint EBO_id_right;
-    glGenBuffers(1, &EBO_id_right);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_id_right);
+    GLuint EBO_id;
+    glGenBuffers(1, &EBO_id);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_id);
     // glBufferData is a function specifically targeted to copy user-defined data into the currently bound buffer
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices_right), indices_right, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-    glUseProgram(shader_program_id_yellow);
-
-    GLuint EBO_id_left;
-    glGenBuffers(1, &EBO_id_left);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_id_left);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices_left), indices_left, GL_STATIC_DRAW);
 
     //
     // VERTEX ARRAY OBJECT
@@ -172,12 +158,8 @@ int main(){
     // holds an array of vertex buffers. Kind of like an array of arrays.
     // Vertex buffer objects need to be in a vertex array object to be rendered
     // 
-    GLuint VAO_id_right;
-    glGenVertexArrays(1, &VAO_id_right);
-
-    GLuint VAO_id_left;
-    glGenVertexArrays(1, &VAO_id_left);
-
+    GLuint VAO_id;
+    glGenVertexArrays(1, &VAO_id);
 
 
     
@@ -187,12 +169,12 @@ int main(){
     //
     // holds a list of vertices that something like element buffer object will reference
     //
-    GLuint VBO_id_right;
-    glGenBuffers(1, &VBO_id_right);
+    GLuint VBO_id;
+    glGenBuffers(1, &VBO_id);
 
-    glBindVertexArray(VAO_id_right); // need to bind VAO to add VBO  to
+    glBindVertexArray(VAO_id); // need to bind VAO to add VBO  to
 
-    glBindBuffer(GL_ARRAY_BUFFER, VBO_id_right);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO_id);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
 
@@ -200,18 +182,6 @@ int main(){
     glEnableVertexAttribArray(0);
 
 
-
-    GLuint VBO_id_left;
-    glGenBuffers(1, &VBO_id_left);
-
-    glBindVertexArray(VAO_id_left); // need to bind VAO to add VBO  to
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO_id_left);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
-    glEnableVertexAttribArray(0);
 
     
 
@@ -244,19 +214,20 @@ int main(){
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
-        glUseProgram(shader_program_id_orange);
+        glUseProgram(shader_program_id);
+        
+        float time_value = (float) SDL_GetTicks() / 1000.0f; // seconds
+        float green_value = (sin(time_value) / 2.0f) + 0.5;
+        int vertex_ourColor_location = glGetUniformLocation(shader_program_id, "ourColor");
+        glUseProgram(shader_program_id);
+        glUniform4f(vertex_ourColor_location, 0.0f, green_value, 0.0f, 1.0f);
+        
         // glBindVertexArray(VAO_id);
         // glDrawArrays(GL_TRIANGLES, 0, 3);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_id_right
-);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_id);
         glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
 
-        glUseProgram(shader_program_id_yellow);
 
-
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_id_left
-);
-        glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
 
 
         SDL_GL_SwapWindow(window);

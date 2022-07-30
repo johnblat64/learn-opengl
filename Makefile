@@ -33,7 +33,7 @@ $(info =============)
 LFLAGS = -Llib
 IFLAGS = -Iinclude -Iinclude/SDL2 -Iinclude/glad
 
-LIBS = -lSDL2 -lSDL2main -ldl -Wl,-rpath,lib
+LIBS = -lSDL2 -lSDL2main -Lm -ldl -Wl,-rpath,lib
 
 
 
