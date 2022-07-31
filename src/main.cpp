@@ -8,6 +8,11 @@
 #include "math.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#include "glm/glm.hpp"
+#include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/type_ptr.hpp"
+
+
 
 #define MIN(a, b)(a < b ? a : b)
 #define MAX(a, b)(a > b ? a : b)
@@ -23,6 +28,7 @@ void quit_program()
 {
     exit(EXIT_SUCCESS);
 }
+
 
 
 GLuint texture_create_from_image_file(const char *image_filename, GLenum format)
@@ -196,6 +202,24 @@ int main(){
         "shaders/textures.frag"
     );
 
+    // TRANSFORMS
+    glm::mat4 mat4_trans = glm::mat4(1.0f);
+    
+    mat4_trans = glm::rotate
+    (
+        mat4_trans, 
+        glm::radians(90.0f), 
+        glm::vec3(0.0f, 0.0f, 1.0f)
+    );
+    
+    mat4_trans = glm::scale
+    (
+        mat4_trans, 
+        glm::vec3(0.5f, 0.5f, 0.5f)
+    );
+
+
+    // VERTICES
 
     float vertices[] = {
         // pos                 // colors           // texture coords
