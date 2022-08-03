@@ -11,6 +11,10 @@
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
+#include "imgui/imgui.h"
+#include "imgui/backends/imgui_impl_opengl3.h"
+#include "imgui/backends/imgui_impl_sdl.h"
+
 
 
 
@@ -19,7 +23,7 @@
 
 
 SDL_Window *window;
-SDL_GLContext openglContext;
+SDL_GLContext gl_context;
 int window_w = 1600;
 int window_h = 900;
 int bpp;
@@ -33,11 +37,12 @@ void quit_program()
 
 GLuint texture_create_from_image_file(const char *image_filename, GLenum format)
 {
-    stbi_set_flip_vertically_on_load(true);
+    stbi_set_flip_vertically_on_load(true); // opengl tex coordinates are opposite
     int width, height, num_channels;
     unsigned char *data = stbi_load(image_filename, &width, &height, &num_channels, 0);
 
-    if(!data){
+    if(!data)
+    {
         fprintf(stderr, "Failed to load texture %s\n", image_filename);
         quit_program();
     }
@@ -146,8 +151,6 @@ int main(){
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
 
-
-
     window = SDL_CreateWindow(
         "windur",
         0,
@@ -157,13 +160,22 @@ int main(){
         SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL |SDL_WINDOW_RESIZABLE
     );
 
-    openglContext = SDL_GL_CreateContext(window);
+    gl_context = SDL_GL_CreateContext(window);
 
     gladLoadGLLoader(SDL_GL_GetProcAddress);
 
     glViewport(0,0,window_w, window_h);
 
     glEnable(GL_DEPTH_TEST);
+
+    // IMGUI Setup
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+
+    ImGui::StyleColorsDark();
+
+    ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
+    ImGui_ImplOpenGL3_Init("#version 330");
 
 
     // SETUP TEXTURE
@@ -192,20 +204,15 @@ int main(){
     
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     
-
-    
     
     // SETUP SHADERS
 
 
-
-    GLuint shader_program_id = program_create_from_shader_files(
+    GLuint shader_program_id = program_create_from_shader_files
+    (
         "shaders/transform.vert",
         "shaders/transform.frag"
     );
-
-    
-
 
 
     // VERTICES
@@ -273,10 +280,6 @@ int main(){
     };
 
 
-
-
-
-
     //
     // VERTEX ARRAY OBJECT
     //
@@ -332,15 +335,28 @@ int main(){
 
     // set samples
     glUseProgram(shader_program_id);
+
     GLuint our_texture_1_location = glGetUniformLocation(shader_program_id, "ourTexture1"); 
     glUniform1i(our_texture_1_location, 0);
+
     GLuint our_texture_2_location = glGetUniformLocation(shader_program_id, "ourTexture2"); 
     glUniform1i(our_texture_2_location, 1);
 
-
-
-
     TimeStep timestep = ts_TimeStep_init(60.0f);
+
+    //
+    // VIEW AND CAM VARS
+    //
+
+    float fov = 45.0f;
+    float aspect_ratio_x = window_w;
+    float aspect_ratio_y = window_h;
+
+    glm::vec3 camera_position = glm::vec3(0.0f, 0.0f, 3.0f);
+
+    //
+    // MAIN LOOP
+    //
 
     SDL_Event event;
 
@@ -350,6 +366,7 @@ int main(){
 
         while(SDL_PollEvent(&event))
         {
+            ImGui_ImplSDL2_ProcessEvent(&event);
             if(event.type == SDL_QUIT)
             {
                 quit_program();
@@ -371,10 +388,25 @@ int main(){
             }
         }
 
-   
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplSDL2_NewFrame();
+        ImGui::NewFrame();
 
+        bool show_imgui_window = true;
+        ImGui::SetNextWindowSize(ImVec2(550, 680), ImGuiCond_FirstUseEver);
+        ImGui::Begin("Modify Window", &show_imgui_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+        ImGui::InputFloat("FOV", &fov, 0.5f, 0.0f, "%.2f", 0);
+        ImGui::InputFloat("Aspect Ratio X", &aspect_ratio_x , 1.0f, 0.0f, "%.2f", 0);
+        ImGui::InputFloat("Aspect Ratio Y", &aspect_ratio_y, 1.0f, 0.0f, "%.2f", 0);
+
+        ImGui::End();
+        ImGui::Render();
+
+   
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 
         glActiveTexture(GL_TEXTURE0);
@@ -397,8 +429,8 @@ int main(){
         glm::mat4 projection_mat4 = glm::mat4(1.0f);
         projection_mat4 = glm::perspective
         (
-            glm::radians(45.0f),
-            (float)window_w/(float)window_h,
+            glm::radians(fov),
+            aspect_ratio_x/aspect_ratio_y,
             0.1f,
             100.0f
         );
@@ -412,16 +444,12 @@ int main(){
                 model_mat4,
                 cube_positions[i]
             );
-            if(i % 3 == 0)
-            {
-                model_mat4 = glm::rotate
-                (
-                    model_mat4, 
-                    (float)SDL_GetTicks() / 1000.0f * glm::radians(50.0f) * (i + 1),
-                    glm::vec3(1.0f, 0.5f, 0.0f)
-                );
-
-            }
+            model_mat4 = glm::rotate
+            (
+                model_mat4, 
+                (float)SDL_GetTicks() / 1000.0f * glm::radians(50.0f) * (i + 1),
+                glm::vec3(1.0f, 0.5f, 0.0f)
+            ); // whichever transform you want first will go on the end because transforms work "right to left"
             
 
             glm::mat4 view_mat4 = glm::mat4(1.0f);
