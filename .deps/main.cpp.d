@@ -102,7 +102,10 @@
   include/glm/gtc/../mat2x2.hpp include/glm/gtc/../mat2x3.hpp \
   include/glm/gtc/../mat2x4.hpp include/glm/gtc/../mat3x2.hpp \
   include/glm/gtc/../mat3x4.hpp include/glm/gtc/../mat4x2.hpp \
-  include/glm/gtc/../mat4x3.hpp include/glm/gtc/type_ptr.inl
+  include/glm/gtc/../mat4x3.hpp include/glm/gtc/type_ptr.inl \
+  include/imgui/imgui.h include/imgui/imconfig.h \
+  include/imgui/backends/imgui_impl_opengl3.h \
+  include/imgui/backends/imgui_impl_sdl.h
 
 include/glad/glad.h:
 
@@ -477,3 +480,11 @@ include/glm/gtc/../mat4x2.hpp:
 include/glm/gtc/../mat4x3.hpp:
 
 include/glm/gtc/type_ptr.inl:
+
+include/imgui/imgui.h:
+
+include/imgui/imconfig.h:
+
+include/imgui/backends/imgui_impl_opengl3.h:
+
+include/imgui/backends/imgui_impl_sdl.h:

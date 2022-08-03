@@ -4,7 +4,12 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/include"
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/include/imgui",
+                "${workspaceFolder}/include/imgui/backends",
+                "${workspaceFolder}/include/SDL2",
+
+
             ],
             "defines": [],
             "compilerPath": "/usr/bin/g++",

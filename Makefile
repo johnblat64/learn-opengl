@@ -31,7 +31,7 @@ $(info =============)
 
 
 LFLAGS = -Llib
-IFLAGS = -Iinclude -Iinclude/SDL2 -Iinclude/glad
+IFLAGS = -Iinclude -Iinclude/SDL2 -Iinclude/glad -Iinclude/imgui -Iinclude/imgui/backends
 
 LIBS = -lSDL2 -lSDL2main -Lm -ldl -Wl,-rpath,lib
 
