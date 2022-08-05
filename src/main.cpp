@@ -143,7 +143,8 @@ GLuint program_create_from_shader_files(const char *vertex_shader_filename, cons
 }
 
 
-int main(){
+int main()
+{
     SDL_Init(SDL_INIT_VIDEO);    
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -159,6 +160,7 @@ int main(){
         window_h,
         SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL |SDL_WINDOW_RESIZABLE
     );
+
 
     gl_context = SDL_GL_CreateContext(window);
 
@@ -352,16 +354,41 @@ int main(){
     float aspect_ratio_x = window_w;
     float aspect_ratio_y = window_h;
 
+    const glm::vec3 VECTOR_UP =  glm::vec3(0.0f, 1.0f, 0.0f); 
     glm::vec3 camera_position = glm::vec3(0.0f, 0.0f, 3.0f);
+    glm::vec3 camera_target = glm::vec3(0.0f, 0.0f, 0.0f); //center of world
+    glm::vec3 camera_direction;
+    glm::vec3 camera_up = VECTOR_UP;
+    glm::vec3 camera_front = glm::vec3(0.0f, 0.0f, -1.0f);
+    const float camera_speed = 0.09f;
+
+    float pitch = 0.0f;
+    float yaw = -90.0f;
+
+    // MOUSE SETUP
+    float prev_mouse_x = (float)window_w/2.0f;
+    float prev_mouse_y = (float)window_h/2.0f;
+    float curr_mouse_x = prev_mouse_x;
+    float curr_mouse_y = prev_mouse_y;
+    float offset_mouse_x = 0.0f, offset_mouse_y = 0.0f;
+
 
     //
     // MAIN LOOP
     //
 
+    SDL_ShowCursor(SDL_DISABLE);
+    SDL_SetRelativeMouseMode(SDL_TRUE);
+    SDL_SetWindowMouseGrab(window, SDL_TRUE);
+    
+    
+    ImGui::SetMouseCursor(ImGuiMouseCursor_None);
     SDL_Event event;
 
     while(true)
     {
+
+
         ts_TimeStep_start_ticks_set_to_current_ticks(timestep);
 
         while(SDL_PollEvent(&event))
@@ -388,6 +415,63 @@ int main(){
             }
         }
 
+        // INPUT
+        const Uint8 *keyboard_state = SDL_GetKeyboardState(NULL);
+
+        if(keyboard_state[SDL_SCANCODE_W])
+        {  
+            camera_position += camera_speed * camera_front;
+        }
+        if(keyboard_state[SDL_SCANCODE_S])
+        {
+            camera_position -= camera_speed * camera_front;
+        }
+        if(keyboard_state[SDL_SCANCODE_A])
+        {
+            camera_position -= camera_speed * glm::normalize
+            (
+                glm::cross(camera_front, camera_up)
+            );
+        }
+        if(keyboard_state[SDL_SCANCODE_D])
+        {
+            camera_position += camera_speed * glm::normalize
+            (
+                glm::cross(camera_front, camera_up)
+            );
+        }
+        
+        int x, y;
+        SDL_GetMouseState(&x, &y);
+        curr_mouse_x = (float)x;
+        curr_mouse_y = (float)y;
+
+        offset_mouse_x = curr_mouse_x - prev_mouse_x;
+        offset_mouse_y = prev_mouse_y - curr_mouse_y;
+
+        prev_mouse_x = curr_mouse_x;
+        prev_mouse_y = curr_mouse_y;
+
+        float sensitivity = 0.1f;
+        offset_mouse_x *= sensitivity;
+        offset_mouse_y *= sensitivity;
+
+        yaw += offset_mouse_x;
+        pitch += offset_mouse_y;
+
+        pitch = MIN(pitch,  89.0f);
+        pitch = MAX(pitch, -89.0f);
+
+        camera_direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+        camera_direction.y = sin(glm::radians(pitch));
+        camera_direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+
+        camera_front = glm::normalize(camera_direction);
+
+        int result = SDL_GetRelativeMouseMode();
+
+        // GUI
+
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
@@ -402,6 +486,20 @@ int main(){
         ImGui::End();
         ImGui::Render();
 
+        // UPDATE CAMERA
+
+        camera_target = camera_position + camera_front;
+
+        glm::mat4 view_mat4 = glm::mat4(1.0f);
+        view_mat4 = glm::lookAt
+        (
+            camera_position,
+            camera_target,
+            VECTOR_UP
+        );
+        
+
+        // RENDER
    
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
@@ -444,20 +542,20 @@ int main(){
                 model_mat4,
                 cube_positions[i]
             );
-            model_mat4 = glm::rotate
-            (
-                model_mat4, 
-                (float)SDL_GetTicks() / 1000.0f * glm::radians(50.0f) * (i + 1),
-                glm::vec3(1.0f, 0.5f, 0.0f)
-            ); // whichever transform you want first will go on the end because transforms work "right to left"
+            // model_mat4 = glm::rotate
+            // (
+            //     model_mat4, 
+            //     (float)SDL_GetTicks() / 1000.0f * glm::radians(50.0f) * (i + 1),
+            //     glm::vec3(1.0f, 0.5f, 0.0f)
+            // ); // whichever transform you want first will go on the end because transforms work "right to left"
             
 
-            glm::mat4 view_mat4 = glm::mat4(1.0f);
-            view_mat4 = glm::translate
-            (
-                view_mat4, 
-                glm::vec3(0.0f, 0.0f, -4.0f)
-            );
+            // glm::mat4 view_mat4 = glm::mat4(1.0f);
+            // view_mat4 = glm::translate
+            // (
+            //     view_mat4, 
+            //     glm::vec3(0.0f, 0.0f, -4.0f)
+            // );
 
             GLuint model_uniform_location = glGetUniformLocation
             (
