@@ -14,12 +14,10 @@
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_opengl3.h"
 #include "imgui/backends/imgui_impl_sdl.h"
+#include "util.h"
+#include "camera.h"
 
 
-
-
-#define MIN(a, b)(a < b ? a : b)
-#define MAX(a, b)(a > b ? a : b)
 
 
 SDL_Window *window;
@@ -355,21 +353,19 @@ int main()
     float aspect_ratio_y = window_h;
 
     const glm::vec3 VECTOR_UP =  glm::vec3(0.0f, 1.0f, 0.0f); 
-    glm::vec3 camera_position = glm::vec3(0.0f, 0.0f, 3.0f);
-    glm::vec3 camera_target = glm::vec3(0.0f, 0.0f, 0.0f); //center of world
-    glm::vec3 camera_direction;
-    glm::vec3 camera_up = VECTOR_UP;
-    glm::vec3 camera_front = glm::vec3(0.0f, 0.0f, -1.0f);
+
+    Camera camera;
+    camera.yaw = -90.0f;
+    camera.pitch = 0.f;
+    camera.position = glm::vec3(0.0f, 0.0f, 3.0f);
+    camera.up = VECTOR_UP;
+    camera.front = glm::vec3(0.0f, 0.0f, -1.0f);
+
     const float camera_speed = 0.09f;
 
-    float pitch = 0.0f;
-    float yaw = -90.0f;
 
     // MOUSE SETUP
-    float prev_mouse_x = (float)window_w/2.0f;
-    float prev_mouse_y = (float)window_h/2.0f;
-    float curr_mouse_x = prev_mouse_x;
-    float curr_mouse_y = prev_mouse_y;
+
     float offset_mouse_x = 0.0f, offset_mouse_y = 0.0f;
 
 
@@ -377,16 +373,16 @@ int main()
     // MAIN LOOP
     //
 
-    SDL_ShowCursor(SDL_DISABLE);
     SDL_SetRelativeMouseMode(SDL_TRUE);
     SDL_SetWindowMouseGrab(window, SDL_TRUE);
     
-    
-    ImGui::SetMouseCursor(ImGuiMouseCursor_None);
     SDL_Event event;
 
     while(true)
     {
+
+        int total_xrel = 0;
+        int total_yrel = 0;
 
 
         ts_TimeStep_start_ticks_set_to_current_ticks(timestep);
@@ -413,6 +409,15 @@ int main()
                     quit_program();
                 }
             }
+            else if(event.type == SDL_MOUSEMOTION)
+            {
+                SDL_Window *focus_window = SDL_GetMouseFocus();
+                if(focus_window) // only move the mouse position if the window is in focus
+                {
+                    total_xrel += event.motion.xrel;
+                    total_yrel -= event.motion.yrel;
+                }
+            }
         }
 
         // INPUT
@@ -420,53 +425,46 @@ int main()
 
         if(keyboard_state[SDL_SCANCODE_W])
         {  
-            camera_position += camera_speed * camera_front;
+            camera.position += camera_speed * camera.front;
         }
         if(keyboard_state[SDL_SCANCODE_S])
         {
-            camera_position -= camera_speed * camera_front;
+            camera.position -= camera_speed * camera.front;
         }
         if(keyboard_state[SDL_SCANCODE_A])
         {
-            camera_position -= camera_speed * glm::normalize
+            camera.position -= camera_speed * glm::normalize
             (
-                glm::cross(camera_front, camera_up)
+                glm::cross(camera.front, VECTOR_UP)
             );
         }
         if(keyboard_state[SDL_SCANCODE_D])
         {
-            camera_position += camera_speed * glm::normalize
+            camera.position += camera_speed * glm::normalize
             (
-                glm::cross(camera_front, camera_up)
+                glm::cross(camera.front, VECTOR_UP)
             );
         }
-        
-        int x, y;
-        SDL_GetMouseState(&x, &y);
-        curr_mouse_x = (float)x;
-        curr_mouse_y = (float)y;
-
-        offset_mouse_x = curr_mouse_x - prev_mouse_x;
-        offset_mouse_y = prev_mouse_y - curr_mouse_y;
-
-        prev_mouse_x = curr_mouse_x;
-        prev_mouse_y = curr_mouse_y;
-
         float sensitivity = 0.1f;
-        offset_mouse_x *= sensitivity;
-        offset_mouse_y *= sensitivity;
 
-        yaw += offset_mouse_x;
-        pitch += offset_mouse_y;
+        float scaled_total_xrel = (float)total_xrel * sensitivity;
+        float scaled_total_yrel = (float)total_yrel * sensitivity; 
 
-        pitch = MIN(pitch,  89.0f);
-        pitch = MAX(pitch, -89.0f);
+        // offset_mouse_x += scaled_total_xrel;
+        // offset_mouse_y += scaled_total_yrel;
 
-        camera_direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-        camera_direction.y = sin(glm::radians(pitch));
-        camera_direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+        camera_update_with_mouse_offset(camera, scaled_total_xrel, scaled_total_yrel);
+        // yaw += offset_mouse_x;
+        // pitch += offset_mouse_y;
 
-        camera_front = glm::normalize(camera_direction);
+        // pitch = MIN(pitch,  89.0f);
+        // pitch = MAX(pitch, -89.0f);
+
+        // camera_direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+        // camera_direction.y = sin(glm::radians(pitch));
+        // camera_direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+
+        // camera_front = glm::normalize(camera_direction);
 
         int result = SDL_GetRelativeMouseMode();
 
@@ -488,15 +486,18 @@ int main()
 
         // UPDATE CAMERA
 
-        camera_target = camera_position + camera_front;
 
-        glm::mat4 view_mat4 = glm::mat4(1.0f);
-        view_mat4 = glm::lookAt
-        (
-            camera_position,
-            camera_target,
-            VECTOR_UP
-        );
+        // camera_target = camera_position + camera_front;
+
+        // glm::mat4 view_mat4 = glm::mat4(1.0f);
+        // view_mat4 = glm::lookAt
+        // (
+        //     camera_position,
+        //     camera_target,
+        //     VECTOR_UP
+        // );
+
+        glm::mat4 view_mat4 = camera_view_mat4(camera);
         
 
         // RENDER
