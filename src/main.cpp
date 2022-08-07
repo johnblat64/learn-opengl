@@ -214,6 +214,11 @@ int main()
         "shaders/transform.frag"
     );
 
+    GLuint shader_program_id_color = program_create_from_shader_files
+    (
+        "shaders/color-example.vert",
+        "shaders/color-example.frag"
+    );
 
     // VERTICES
 
@@ -280,6 +285,8 @@ int main()
     };
 
 
+
+
     //
     // VERTEX ARRAY OBJECT
     //
@@ -342,13 +349,76 @@ int main()
     GLuint our_texture_2_location = glGetUniformLocation(shader_program_id, "ourTexture2"); 
     glUniform1i(our_texture_2_location, 1);
 
+
+
+    // SETUP FLOOR
+    float vertices2[] = {
+        // pos                // color
+        -1.0f, 0.0f, -1.0f,   0.0f, 0.7f, 0.0f, // top left
+         1.0f, 0.0f,  1.0f,   0.0f, 0.7f, 0.0f, // top right
+        -1.0f, 0.0f,  1.0f,   0.0f, 0.7f, 0.0f, // bottom left
+         1.0f, 0.0f, -1.0f,   0.0f, 0.7f, 0.0f  // bottom right
+    };
+    
+    unsigned int indices2[] = {
+        0, 1, 2, // triangle 1
+        1, 0, 3  // triangle 2
+    };
+
+
+
+    GLuint VAO_id_2;
+    glGenVertexArrays(1, &VAO_id_2);
+
+    GLuint VBO_id_2;
+    glGenBuffers(1, &VBO_id_2);
+
+    glBindVertexArray(VAO_id_2); // need to bind VAO to add VBO  to
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO_id_2);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices2), vertices2, GL_STATIC_DRAW);
+
+        // position
+    glVertexAttribPointer
+    (
+        0, 
+        3, 
+        GL_FLOAT, 
+        GL_FALSE, 
+        6 * sizeof(float), 
+        (void *)0
+    );
+    glEnableVertexAttribArray(0);
+
+
+    // color 
+    glVertexAttribPointer
+    (
+        1, 
+        3, 
+        GL_FLOAT, 
+        GL_FALSE, 
+        6 * sizeof(float), 
+        (void *)(3 * sizeof(float))
+    );
+    glEnableVertexAttribArray(1);
+
+    GLuint EBO_id_2;
+    glGenBuffers(1, &EBO_id_2);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_id_2);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices2), indices2, GL_STATIC_DRAW);
+
+
+
+
+    // TIMESTEP
+
     TimeStep timestep = ts_TimeStep_init(60.0f);
 
     //
     // VIEW AND CAM VARS
     //
 
-    float fov = 45.0f;
     float aspect_ratio_x = window_w;
     float aspect_ratio_y = window_h;
 
@@ -360,13 +430,10 @@ int main()
     camera.position = glm::vec3(0.0f, 0.0f, 3.0f);
     camera.up = VECTOR_UP;
     camera.front = glm::vec3(0.0f, 0.0f, -1.0f);
+    camera.fov = 45.0f;
 
     const float camera_speed = 0.09f;
 
-
-    // MOUSE SETUP
-
-    float offset_mouse_x = 0.0f, offset_mouse_y = 0.0f;
 
 
     //
@@ -383,6 +450,8 @@ int main()
 
         int total_xrel = 0;
         int total_yrel = 0;
+
+        float total_precise_scroll_y = 0;
 
 
         ts_TimeStep_start_ticks_set_to_current_ticks(timestep);
@@ -418,31 +487,37 @@ int main()
                     total_yrel -= event.motion.yrel;
                 }
             }
+            else if(event.type == SDL_MOUSEWHEEL)
+            {
+                total_precise_scroll_y += event.wheel.preciseY;
+            }
         }
 
         // INPUT
         const Uint8 *keyboard_state = SDL_GetKeyboardState(NULL);
 
+        glm::vec3 move_direction = glm::vec3(camera.front.x, 0.0f, camera.front.z);
+        
         if(keyboard_state[SDL_SCANCODE_W])
         {  
-            camera.position += camera_speed * camera.front;
+            camera.position += camera_speed * glm::normalize(move_direction);
         }
         if(keyboard_state[SDL_SCANCODE_S])
         {
-            camera.position -= camera_speed * camera.front;
+            camera.position -=  camera_speed * glm::normalize(move_direction);
         }
         if(keyboard_state[SDL_SCANCODE_A])
         {
             camera.position -= camera_speed * glm::normalize
             (
-                glm::cross(camera.front, VECTOR_UP)
+                glm::cross(move_direction, VECTOR_UP)
             );
         }
         if(keyboard_state[SDL_SCANCODE_D])
         {
             camera.position += camera_speed * glm::normalize
             (
-                glm::cross(camera.front, VECTOR_UP)
+                glm::cross(move_direction, VECTOR_UP)
             );
         }
         float sensitivity = 0.1f;
@@ -450,23 +525,9 @@ int main()
         float scaled_total_xrel = (float)total_xrel * sensitivity;
         float scaled_total_yrel = (float)total_yrel * sensitivity; 
 
-        // offset_mouse_x += scaled_total_xrel;
-        // offset_mouse_y += scaled_total_yrel;
 
         camera_update_with_mouse_offset(camera, scaled_total_xrel, scaled_total_yrel);
-        // yaw += offset_mouse_x;
-        // pitch += offset_mouse_y;
-
-        // pitch = MIN(pitch,  89.0f);
-        // pitch = MAX(pitch, -89.0f);
-
-        // camera_direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-        // camera_direction.y = sin(glm::radians(pitch));
-        // camera_direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-
-        // camera_front = glm::normalize(camera_direction);
-
-        int result = SDL_GetRelativeMouseMode();
+        camera_update_zoom(camera, -total_precise_scroll_y);
 
         // GUI
 
@@ -477,7 +538,7 @@ int main()
         bool show_imgui_window = true;
         ImGui::SetNextWindowSize(ImVec2(550, 680), ImGuiCond_FirstUseEver);
         ImGui::Begin("Modify Window", &show_imgui_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-        ImGui::InputFloat("FOV", &fov, 0.5f, 0.0f, "%.2f", 0);
+        ImGui::InputFloat("FOV", &camera.fov, 0.5f, 0.0f, "%.2f", 0);
         ImGui::InputFloat("Aspect Ratio X", &aspect_ratio_x , 1.0f, 0.0f, "%.2f", 0);
         ImGui::InputFloat("Aspect Ratio Y", &aspect_ratio_y, 1.0f, 0.0f, "%.2f", 0);
 
@@ -486,16 +547,6 @@ int main()
 
         // UPDATE CAMERA
 
-
-        // camera_target = camera_position + camera_front;
-
-        // glm::mat4 view_mat4 = glm::mat4(1.0f);
-        // view_mat4 = glm::lookAt
-        // (
-        //     camera_position,
-        //     camera_target,
-        //     VECTOR_UP
-        // );
 
         glm::mat4 view_mat4 = camera_view_mat4(camera);
         
@@ -528,7 +579,7 @@ int main()
         glm::mat4 projection_mat4 = glm::mat4(1.0f);
         projection_mat4 = glm::perspective
         (
-            glm::radians(fov),
+            glm::radians(camera.fov),
             aspect_ratio_x/aspect_ratio_y,
             0.1f,
             100.0f
@@ -543,20 +594,7 @@ int main()
                 model_mat4,
                 cube_positions[i]
             );
-            // model_mat4 = glm::rotate
-            // (
-            //     model_mat4, 
-            //     (float)SDL_GetTicks() / 1000.0f * glm::radians(50.0f) * (i + 1),
-            //     glm::vec3(1.0f, 0.5f, 0.0f)
-            // ); // whichever transform you want first will go on the end because transforms work "right to left"
-            
 
-            // glm::mat4 view_mat4 = glm::mat4(1.0f);
-            // view_mat4 = glm::translate
-            // (
-            //     view_mat4, 
-            //     glm::vec3(0.0f, 0.0f, -4.0f)
-            // );
 
             GLuint model_uniform_location = glGetUniformLocation
             (
@@ -601,15 +639,59 @@ int main()
 
         }
 
+        glUseProgram(shader_program_id_color);
+        glBindVertexArray(VAO_id_2);
+
+
+        glm::mat4 model_mat4 = glm::mat4(1.0f);
+        model_mat4 = glm::translate                           
+        (
+            model_mat4,
+            glm::vec3(-1.0f)
+        );
+        model_mat4 = glm::scale(model_mat4, glm::vec3(20.0f, 20.0f, 20.0f));
+
+
+        GLuint model_uniform_location = glGetUniformLocation
+        (
+            shader_program_id_color, 
+            "model"
+        );
+        glUniformMatrix4fv
+        (
+            model_uniform_location, 
+            1, 
+            GL_FALSE, 
+            glm::value_ptr(model_mat4)
+        );
         
-        
-     
-    
+        GLuint view_uniform_location = glGetUniformLocation
+        (
+            shader_program_id_color,
+            "view"
+        );
+        glUniformMatrix4fv
+        (
+            view_uniform_location,
+            1,
+            GL_FALSE,
+            glm::value_ptr(view_mat4)
+        );
 
-        // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        GLuint projection_uniform_location = glGetUniformLocation
+        (
+            shader_program_id_color,
+            "projection"
+        );
+        glUniformMatrix4fv
+        (
+            projection_uniform_location,
+            1,
+            GL_FALSE,
+            glm::value_ptr(projection_mat4)
+        );
 
-
-    
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
         SDL_GL_SwapWindow(window);
 
