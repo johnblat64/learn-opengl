@@ -1,3 +1,5 @@
+#pragma once
+
 #include <SDL2/SDL.h>
 
 #define MAX_DELTA_TIME 0.0167
