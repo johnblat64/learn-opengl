@@ -135,7 +135,8 @@ int main()
     // VERTICES
 
     glm::vec3 light_position(1.2f, 1.0f, 2.0f);
-
+    float light_speed = 0.04f;
+    float light_radius = 3.0f;
 
 
 
@@ -321,6 +322,7 @@ int main()
 
         if(camera_move_toggle)
         {
+            // camera 
             glm::vec3 move_direction = glm::vec3(camera.front.x, camera.front.y, camera.front.z);
             
             if(keyboard_state[SDL_SCANCODE_W])
@@ -353,6 +355,59 @@ int main()
             {
                 camera.position -= camera_speed * glm::normalize(VECTOR_UP);
             }
+
+            // light source
+
+            
+
+            move_direction = glm::vec3(camera.front.x, camera.front.y, camera.front.z);
+            
+            if(keyboard_state[SDL_SCANCODE_UP])
+            {  
+                light_position += light_speed * glm::normalize(glm::vec3(0.0f, 0.0f, -1.0f));
+            }
+            if(keyboard_state[SDL_SCANCODE_DOWN])
+            {
+                light_position +=  light_speed * glm::normalize(glm::vec3(0.0f, 0.0f, 1.0f));
+            }
+            if(keyboard_state[SDL_SCANCODE_LEFT])
+            {
+                light_position += light_speed * glm::normalize(glm::vec3(-1.0f, 0.0f, 0.0f));
+            }
+            if(keyboard_state[SDL_SCANCODE_RIGHT])
+            {
+                light_position += light_speed * glm::normalize(glm::vec3(1.0f, 0.0f, 0.0f));
+            }
+            if(keyboard_state[SDL_SCANCODE_PAGEUP])
+            {
+                light_position += light_speed * glm::normalize(VECTOR_UP);
+            }
+            if(keyboard_state[SDL_SCANCODE_PAGEDOWN])
+            {
+                light_position -= light_speed * glm::normalize(VECTOR_UP);
+            }
+            // if(keyboard_state[SDL_SCANCODE_EQUALS])
+            // {
+            //     light_radius += 0.1;
+            // }
+            // if(keyboard_state[SDL_SCANCODE_MINUS])
+            // {
+            //     light_radius -= 0.1;
+            // }
+            // if(keyboard_state[SDL_SCANCODE_J])
+            // {
+            //     light_speed -= 0.01;
+            // }
+            // if(keyboard_state[SDL_SCANCODE_K])
+            // {
+            //     light_speed += 0.01;
+            // }
+
+            // light_position.x = sin((float)SDL_GetTicks()/100 * light_speed ) * light_radius;
+            // light_position.z = cos((float)SDL_GetTicks()/100 * light_speed ) * light_radius;
+
+
+
             float sensitivity = 0.1f;
 
             float scaled_total_xrel = (float)total_xrel * sensitivity;
@@ -381,7 +436,10 @@ int main()
         ImGui::InputFloat("Camera Yaw", &camera.yaw);
         ImGui::InputFloat("Camera Pitch", &camera.pitch);
         ImGui::InputFloat3("Light Position", glm::value_ptr(light_position));
-
+        if(ImGui::Button("click me to close"))
+        {
+            show_imgui_window = false;
+        }
 
 
         ImGui::End();
@@ -430,6 +488,7 @@ int main()
             program_set_uniform_mat4(object_shader_program_id, "view", view_mat4);
             program_set_uniform_mat4(object_shader_program_id, "projection", projection_mat4);
             program_set_uniform_mat4(object_shader_program_id, "model", model_mat4);
+            program_set_uniform_vec3(object_shader_program_id, "viewPos", camera.position);
 
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
