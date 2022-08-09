@@ -17,7 +17,7 @@
 #include "util.h"
 #include "camera.h"
 #include "shader.h"
-
+#include "material.h"
 
 
 SDL_Window *window;
@@ -204,15 +204,40 @@ int main()
 
 
     glUseProgram(object_shader_program_id);
-    program_set_uniform_vec3(object_shader_program_id, "objectColor", glm::vec3(1.0f, 0.5f, 0.31f));
 
 
 
 
+    glm::vec3 light_color;
+    light_color.x = 1.0f;
+    light_color.y = 0.9f;
+    light_color.z = 0.7f;
 
+    glm::vec3 light_specular = glm::vec3(1.0f);
 
+    Material default_material;
+    default_material.ambient = glm::vec3(1.0f);
+    default_material.diffuse = glm::vec3(1.0f);
+    default_material.specular = glm::vec3(0.3f);
+    default_material.shininess = 32.0f;
 
+    Material emerald_material;
+    emerald_material.ambient = glm::vec3(0.0215, 0.1745, 0.0215);
+    emerald_material.diffuse = glm::vec3(0.07568, 0.61424, 0.07568);
+    emerald_material.ambient = glm::vec3(0.633, 0.727811, 0.633);
+    emerald_material.shininess = 0.6 * 128.0;
 
+    Material cyan_rubber_material;
+    cyan_rubber_material.ambient = glm::vec3(0.0, 0.05, 0.05);
+    cyan_rubber_material.diffuse = glm::vec3(0.04, 0.05, 0.05);
+    cyan_rubber_material.ambient = glm::vec3(0.04, 0.7, 0.7);
+    cyan_rubber_material.shininess = 0.078125 * 128.0;
+
+    Material materials[3] = {default_material, emerald_material, cyan_rubber_material};
+    const char *material_names[3] = {"default", "emerald", "cyan_rubber"};
+    size_t num_materials = 3;
+
+    int selected_material_index = 0;
 
     // TIMESTEP
 
@@ -431,19 +456,58 @@ int main()
         ImGui::InputFloat("FOV", &camera.fov, 0.5f, 0.0f, "%.2f", 0);
         ImGui::InputFloat("Aspect Ratio X", &aspect_ratio_x , 1.0f, 0.0f, "%.2f", 0);
         ImGui::InputFloat("Aspect Ratio Y", &aspect_ratio_y, 1.0f, 0.0f, "%.2f", 0);
-        ImGui::InputFloat3("Camera position", glm::value_ptr(camera.position));
-        ImGui::InputFloat3("Camera front", glm::value_ptr(camera.front));
+
+        ImGui::InputFloat3("Camera Position", glm::value_ptr(camera.position));
         ImGui::InputFloat("Camera Yaw", &camera.yaw);
         ImGui::InputFloat("Camera Pitch", &camera.pitch);
-        ImGui::InputFloat3("Light Position", glm::value_ptr(light_position));
-        if(ImGui::Button("click me to close"))
-        {
-            show_imgui_window = false;
-        }
 
+        // bool r0 = ImGui::RadioButton(material_names[0],true); ImGui::SameLine();
+        // bool r1 = ImGui::RadioButton(material_names[1], false); ImGui::SameLine();
+        // bool r2 = ImGui::RadioButton(material_names[2], false); 
+
+        ImGui::ListBox("Material", &selected_material_index, material_names, num_materials, 3);
+
+        // ImGui::InputFloat3("Material Ambient Color", glm::value_ptr(material_ambient));
+        // ImGui::InputFloat3("Material Diffuse Color", glm::value_ptr(material_diffuse));
+        // ImGui::InputFloat3("Material Specular Color", glm::value_ptr(material_specular));
+        // ImGui::InputFloat("Material Shininess", &material_shininess);
+
+
+        ImGui::InputFloat3("Light Position", glm::value_ptr(light_position));
+        ImGui::InputFloat3("Light Specular", glm::value_ptr(light_specular));
+        ImGui::ColorPicker3("Light Color", glm::value_ptr(light_color));
 
         ImGui::End();
         ImGui::Render();
+
+
+
+        //* glm::vec3(0.7f)
+        //* glm::vec3(0.2f)
+        glm::vec3 light_diffuse = light_color ;
+        glm::vec3 light_ambient = light_diffuse ;
+
+
+        program_set_uniform_vec3
+        (
+            object_shader_program_id, 
+            "light.ambient", 
+            light_ambient
+        );
+
+        program_set_uniform_vec3
+        (
+            object_shader_program_id, 
+            "light.diffuse", 
+            light_diffuse
+        );
+
+        program_set_uniform_vec3
+        (
+            object_shader_program_id, 
+            "light.specular", 
+            light_specular
+        );
 
         // UPDATE CAMERA
 
@@ -476,19 +540,44 @@ int main()
             100.0f
         );
 
-        glm::vec3 light_color = glm::vec3(1.0, 1.0, 1.0);
 
         // object
         {
             glm::mat4 model_mat4 = glm::mat4(1.0f);
 
-            program_set_uniform_vec3(object_shader_program_id, "lightPos", light_position);
-            program_set_uniform_vec3(object_shader_program_id, "lightColor", light_color);
-
+            program_set_uniform_vec3(object_shader_program_id, "lightPosWorldSpace", light_position);
             program_set_uniform_mat4(object_shader_program_id, "view", view_mat4);
             program_set_uniform_mat4(object_shader_program_id, "projection", projection_mat4);
             program_set_uniform_mat4(object_shader_program_id, "model", model_mat4);
             program_set_uniform_vec3(object_shader_program_id, "viewPos", camera.position);
+
+            program_set_uniform_vec3
+            (
+                object_shader_program_id, 
+                "material.ambient", 
+                materials[selected_material_index].ambient
+            );
+
+            program_set_uniform_vec3
+            (
+                object_shader_program_id, 
+                "material.diffuse", 
+                materials[selected_material_index].diffuse
+            );
+
+            program_set_uniform_vec3
+            (
+                object_shader_program_id, 
+                "material.specular", 
+                materials[selected_material_index].specular
+            );
+
+            program_set_uniform_float
+            (
+                object_shader_program_id, 
+                "material.shininess", 
+                materials[selected_material_index].shininess
+            );
 
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
@@ -500,6 +589,8 @@ int main()
             model_mat4 = glm::scale(model_mat4, glm::vec3(0.2f));
             glUseProgram(light_source_shader_program_id);
 
+
+            program_set_uniform_vec3(light_source_shader_program_id, "lightColor", light_color);
             program_set_uniform_mat4(light_source_shader_program_id, "view", view_mat4);
             program_set_uniform_mat4(light_source_shader_program_id, "projection", projection_mat4);
             program_set_uniform_mat4(light_source_shader_program_id, "model", model_mat4);

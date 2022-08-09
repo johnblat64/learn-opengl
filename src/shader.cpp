@@ -90,6 +90,8 @@ GLuint program_create_from_shader_files(const char *vertex_shader_filename, cons
 
 void program_set_uniform_mat4(GLuint program_id, const char *uniform_name, glm::mat4 mat4)
 {
+    glUseProgram(program_id);
+
     GLuint uniform_location = glGetUniformLocation
     (
         program_id, 
@@ -107,10 +109,24 @@ void program_set_uniform_mat4(GLuint program_id, const char *uniform_name, glm::
 
 void program_set_uniform_vec3(GLuint program_id, const char *uniform_name, glm::vec3 vec3)
 {
+    glUseProgram(program_id);
+
     GLuint uniform_location = glGetUniformLocation
     (
         program_id, 
         uniform_name
     );
     glUniform3f(uniform_location, vec3.x, vec3.y, vec3.z);
+}
+
+void program_set_uniform_float(GLuint program_id, const char *uniform_name, float f)
+{
+    glUseProgram(program_id);
+
+    GLuint uniform_location = glGetUniformLocation
+    (
+        program_id, 
+        uniform_name
+    );
+    glUniform1f(uniform_location, f);
 }
